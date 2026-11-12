@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+.env
+.env.local
+*.tsbuildinfo
+__pycache__/
+.venv/
+frontend/test-results/
+.npm-cache/
+test-results/
+.logs/
+uploads/

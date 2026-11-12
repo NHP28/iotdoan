@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver IoT - Hệ Thống Đăng Ký & Giám Sát Tài Xế</title>
+  <!-- Tailwind CSS & Lucide Icons CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap justify-between items-center shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="bg-blue-600 p-2.5 rounded-xl shadow-md text-white">
+        <i class="fa-solid fa-id-card text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-wide text-white">IOT DRIVER ATTENDANCE</h1>
+        <p class="text-xs text-slate-400">Hệ thống Đăng ký & Giám sát An toàn Lái xe (Raspberry Pi DMS)</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-3 mt-3 sm:mt-0">
+      <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
+        <span class="text-slate-400">API Backend:</span>
+        <input id="apiBaseUrl" type="text" value="" class="bg-transparent text-emerald-400 font-mono focus:outline-none w-56 text-xs" />
+        <button onclick="saveApiUrl()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-save"></i></button>
+      </div>
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
+        <span class="w-2 h-2 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span> DB: iotdb
+      </span>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+    <div class="flex border-b border-slate-800 space-x-8 text-sm font-medium">
+      <button onclick="switchTab('drivers')" id="tabBtn-drivers" class="pb-3 text-blue-400 border-b-2 border-blue-500 flex items-center space-x-2">
+        <i class="fa-solid fa-users"></i>
+        <span>Đăng Ký & Quản Lý Tài Xế</span>
+      </button>
+      <button onclick="switchTab('attendance')" id="tabBtn-attendance" class="pb-3 text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Lịch Sử Điểm Danh</span>
+      </button>
+      <button onclick="switchTab('telemetry')" id="tabBtn-telemetry" class="pb-3 text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i class="fa-solid fa-microchip"></i>
+        <span>Dữ Liệu Giám Sát Raspberry Pi</span>
+      </button>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    
+    <!-- TAB 1: DRIVERS -->
+    <div id="tab-drivers" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Form Đăng ký -->
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+          <h2 class="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-user-plus text-blue-400"></i>
+            <span>Đăng Ký Tài Xế Mới</span>
+          </h2>
+          <form id="driverForm" onsubmit="handleCreateDriver(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Mã Tài Xế *</label>
+              <input type="text" id="driver_code" required placeholder="TX001" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Họ Và Tên *</label>
+              <input type="text" id="full_name" required placeholder="Nguyễn Văn A" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Số Điện Thoại</label>
+                <input type="text" id="phone" placeholder="0912345678" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Bằng Lái (GPLX)</label>
+                <input type="text" id="license_number" placeholder="B2-887766" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Ảnh Chân Dung (Chụp / Tải lên)</label>
+              <input type="file" id="avatarFile" accept="image/*" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+              <img id="avatarPreview" class="mt-2 h-28 w-28 object-cover rounded-lg border border-slate-600 hidden" />
+            </div>
+            <button type="submit" id="btnSubmitDriver" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow-lg shadow-blue-600/30">
+              Lưu Thông Tin Tài Xế
+            </button>
+          </form>
+        </div>
+
+        <!-- Bảng danh sách tài xế -->
+        <div class="lg:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-list-check text-blue-400"></i>
+              <span>Danh Sách Tài Xế Trong DB</span>
+            </h2>
+            <button onclick="fetchDrivers()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-300 transition">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="text-xs uppercase bg-slate-900 text-slate-400">
+                <tr>
+                  <th class="px-4 py-3 rounded-l-lg">Tài xế</th>
+                  <th class="px-4 py-3">Mã TX</th>
+                  <th class="px-4 py-3">SĐT</th>
+                  <th class="px-4 py-3">GPLX</th>
+                  <th class="px-4 py-3">Face Embedding</th>
+                  <th class="px-4 py-3 rounded-r-lg text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="driverTableBody" class="divide-y divide-slate-700">
+                <tr>
+                  <td colspan="6" class="px-4 py-6 text-center text-slate-500">Đang tải dữ liệu...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: ATTENDANCE -->
+    <div id="tab-attendance" class="hidden space-y-6">
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-clipboard-user text-emerald-400"></i>
+            <span>Lịch Sử Điểm Danh Khuôn Mặt (Camera Check-in)</span>
+          </h2>
+          <button onclick="fetchAttendance()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-300 transition">
+            <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-900 text-slate-400">
+              <tr>
+                <th class="px-4 py-3 rounded-l-lg">ID</th>
+                <th class="px-4 py-3">Tài Xế</th>
+                <th class="px-4 py-3">Mã TX</th>
+                <th class="px-4 py-3">Loại</th>
+                <th class="px-4 py-3">Độ Tin Cậy</th>
+                <th class="px-4 py-3">Thiết Bị</th>
+                <th class="px-4 py-3">Thời Gian</th>
+                <th class="px-4 py-3 rounded-r-lg">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody" class="divide-y divide-slate-700">
+              <tr>
+                <td colspan="8" class="px-4 py-6 text-center text-slate-500">Đang tải dữ liệu điểm danh...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: TELEMETRY -->
+    <div id="tab-telemetry" class="hidden space-y-6">
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-satellite-dish text-amber-400"></i>
+            <span>Log Giám Sát Từ Raspberry Pi (Drowsiness & Telemetry)</span>
+          </h2>
+          <div class="flex space-x-2">
+            <span class="text-xs text-slate-400 self-center">Tự động cập nhật mỗi 3s</span>
+            <button onclick="fetchTelemetry()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-300 transition">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-900 text-slate-400">
+              <tr>
+                <th class="px-4 py-3 rounded-l-lg">Thiết Bị</th>
+                <th class="px-4 py-3">Tài Xế</th>
+                <th class="px-4 py-3">Ngủ gật</th>
+                <th class="px-4 py-3">Ngáp</th>
+                <th class="px-4 py-3">Mất tập trung</th>
+                <th class="px-4 py-3">EAR</th>
+                <th class="px-4 py-3">Tốc độ</th>
+                <th class="px-4 py-3">Mức cảnh báo</th>
+                <th class="px-4 py-3 rounded-r-lg">Thời Gian</th>
+              </tr>
+            </thead>
+            <tbody id="telemetryTableBody" class="divide-y divide-slate-700">
+              <tr>
+                <td colspan="9" class="px-4 py-6 text-center text-slate-500">Đang tải telemetry...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Tự động nhận URL backend: nếu cùng host thì port 3000, hoặc đọc từ localStorage
+    const defaultApi = `${window.location.protocol}//${window.location.hostname}:3000`;
+    let API_URL = localStorage.getItem("API_URL") || defaultApi;
+    document.getElementById("apiBaseUrl").value = API_URL;
+
+    function saveApiUrl() {
+      API_URL = document.getElementById("apiBaseUrl").value.trim();
+      localStorage.setItem("API_URL", API_URL);
+      alert("Đã lưu URL Backend: " + API_URL);
+      refreshCurrentTab();
+    }
+
+    function switchTab(tab) {
+      ['drivers', 'attendance', 'telemetry'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`tabBtn-${t}`).classList.remove('text-blue-400', 'border-b-2', 'border-blue-500');
+        document.getElementById(`tabBtn-${t}`).classList.add('text-slate-400');
+      });
+
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`tabBtn-${tab}`).classList.add('text-blue-400', 'border-b-2', 'border-blue-500');
+      document.getElementById(`tabBtn-${tab}`).classList.remove('text-slate-400');
+
+      if (tab === 'drivers') fetchDrivers();
+      if (tab === 'attendance') fetchAttendance();
+      if (tab === 'telemetry') fetchTelemetry();
+    }
+
+    // Preview Avatar
+    let avatarBase64 = null;
+    document.getElementById("avatarFile").addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          avatarBase64 = evt.target.result;
+          const img = document.getElementById("avatarPreview");
+          img.src = avatarBase64;
+          img.classList.remove("hidden");
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Tạo tài xế mới
+    async function handleCreateDriver(e) {
+      e.preventDefault();
+      const payload = {
+        driver_code: document.getElementById("driver_code").value.trim(),
+        full_name: document.getElementById("full_name").value.trim(),
+        phone: document.getElementById("phone").value.trim() || undefined,
+        license_number: document.getElementById("license_number").value.trim() || undefined,
+        avatar_url: avatarBase64 || undefined
+      };
+
+      try {
+        const res = await fetch(`${API_URL}/drivers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert("🎉 Đăng ký tài xế thành công!");
+          document.getElementById("driverForm").reset();
+          document.getElementById("avatarPreview").classList.add("hidden");
+          avatarBase64 = null;
+          fetchDrivers();
+        } else {
+          alert("Lỗi: " + (data.message || JSON.stringify(data)));
+        }
+      } catch (err) {
+        alert("Không thể kết nối đến Backend: " + err.message);
+      }
+    }
+
+    // Danh sách tài xế
+    async function fetchDrivers() {
+      const tbody = document.getElementById("driverTableBody");
+      try {
+        const res = await fetch(`${API_URL}/drivers`);
+        const json = await res.json();
+        const drivers = json.data || [];
+        if (drivers.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Chưa có tài xế nào</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = drivers.map(d => `
+          <tr class="hover:bg-slate-700/50 transition">
+            <td class="px-4 py-3 flex items-center space-x-3">
+              <img src="${d.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}" class="w-10 h-10 rounded-full object-cover border border-slate-600" />
+              <span class="font-medium text-white">${d.full_name}</span>
+            </td>
+            <td class="px-4 py-3 font-mono text-xs text-blue-400">${d.driver_code}</td>
+            <td class="px-4 py-3">${d.phone || '-'}</td>
+            <td class="px-4 py-3">${d.license_number || '-'}</td>
+            <td class="px-4 py-3">
+              ${d.face_embedding ? '<span class="text-xs bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">Đã nạp AI</span>' : '<span class="text-xs bg-amber-950 text-amber-400 px-2 py-0.5 rounded border border-amber-800">Chưa nạp vector</span>'}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <button onclick="deleteDriver(${d.id})" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-rose-400">Lỗi kết nối Backend: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function deleteDriver(id) {
+      if (!confirm("Bạn có chắc chắn muốn xóa tài xế này?")) return;
+      try {
+        await fetch(`${API_URL}/drivers/${id}`, { method: 'DELETE' });
+        fetchDrivers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // Danh sách điểm danh
+    async function fetchAttendance() {
+      const tbody = document.getElementById("attendanceTableBody");
+      try {
+        const res = await fetch(`${API_URL}/attendance`);
+        const json = await res.json();
+        const list = json.data || [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-slate-500">Chưa có lượt điểm danh nào</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(item => `
+          <tr class="hover:bg-slate-700/50 transition">
+            <td class="px-4 py-3 font-mono text-xs text-slate-400">#${item.id}</td>
+            <td class="px-4 py-3 font-semibold text-white">${item.driver_name || 'N/A'}</td>
+            <td class="px-4 py-3 font-mono text-xs text-blue-400">${item.driver_code || '-'}</td>
+            <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-950 text-blue-300 border border-blue-800">${item.check_type}</span></td>
+            <td class="px-4 py-3 font-bold text-emerald-400">${item.confidence_score ? item.confidence_score.toFixed(1) + '%' : '-'}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-400">${item.device_id || '-'}</td>
+            <td class="px-4 py-3 text-xs text-slate-400">${new Date(item.created_at).toLocaleString('vi-VN')}</td>
+            <td class="px-4 py-3 text-xs text-slate-400">${item.notes || '-'}</td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-4 text-center text-rose-400">Lỗi kết nối Backend: ${err.message}</td></tr>`;
+      }
+    }
+
+    // Danh sách Telemetry
+    async function fetchTelemetry() {
+      const tbody = document.getElementById("telemetryTableBody");
+      try {
+        const res = await fetch(`${API_URL}/telemetry?limit=20`);
+        const json = await res.json();
+        const list = json.data || [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-6 text-center text-slate-500">Chưa có log telemetry nào</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(item => {
+          let alertBadge = '<span class="px-2 py-0.5 rounded text-xs bg-slate-700 text-slate-300">NORMAL</span>';
+          if (item.alert_level === 'WARNING') alertBadge = '<span class="px-2 py-0.5 rounded text-xs bg-amber-950 text-amber-300 border border-amber-800 font-bold">WARNING</span>';
+          if (item.alert_level === 'CRITICAL') alertBadge = '<span class="px-2 py-0.5 rounded text-xs bg-rose-950 text-rose-300 border border-rose-800 font-bold animate-pulse">CRITICAL</span>';
+
+          return `
+            <tr class="hover:bg-slate-700/50 transition">
+              <td class="px-4 py-3 font-mono text-xs text-slate-300">${item.device_id}</td>
+              <td class="px-4 py-3 font-medium text-white">${item.driver_name || 'N/A'}</td>
+              <td class="px-4 py-3">${item.drowsiness_detected ? '<span class="text-rose-400 font-bold">⚠️ Có</span>' : '<span class="text-slate-500">Không</span>'}</td>
+              <td class="px-4 py-3">${item.yawn_detected ? '<span class="text-amber-400 font-semibold">⚠️ Có</span>' : '<span class="text-slate-500">Không</span>'}</td>
+              <td class="px-4 py-3">${item.distraction_detected ? '<span class="text-orange-400 font-semibold">⚠️ Có</span>' : '<span class="text-slate-500">Không</span>'}</td>
+              <td class="px-4 py-3 font-mono text-xs">${item.eye_aspect_ratio ? item.eye_aspect_ratio.toFixed(2) : '-'}</td>
+              <td class="px-4 py-3 font-mono text-xs text-blue-400">${item.speed ? item.speed + ' km/h' : '-'}</td>
+              <td class="px-4 py-3">${alertBadge}</td>
+              <td class="px-4 py-3 text-xs text-slate-400">${new Date(item.created_at).toLocaleTimeString('vi-VN')}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-4 text-center text-rose-400">Lỗi kết nối Backend: ${err.message}</td></tr>`;
+      }
+    }
+
+    // Polling tự động khi ở tab telemetry
+    setInterval(() => {
+      if (!document.getElementById("tab-telemetry").classList.contains("hidden")) {
+        fetchTelemetry();
+      }
+    }, 3000);
+
+    // Initial load
+    fetchDrivers();
+  </script>
+</body>
+</html>
+
