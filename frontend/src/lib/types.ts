@@ -3,6 +3,7 @@ export type Driver = {
   id: number; driver_code: string; full_name: string; phone: string | null;
   license_number: string | null; is_active: boolean; face_registered?: boolean;
   face_embedding?: string | null; created_at: string;
+  face_sample_count?: number; face_source?: string | null; face_enrolled_at?: string | null;
   avatar_url?: string | null; account_id?: number | null; account_email?: string | null;
 };
 export type User = { id: number; email: string; full_name: string; role: Role; driver_id: number | null; driver: Driver | null };
@@ -20,11 +21,11 @@ export type DriverAlertHistory = {
 };
 export const roleLabel: Record<Role, string> = { admin: 'Quản trị viên', user: 'Người dùng', driver: 'Tài xế' };
 export const sections: Record<Role, string[]> = {
-  admin: ['overview', 'drivers', 'attendance', 'devices', 'accounts', 'profile'],
+  admin: ['overview', 'drivers', 'violations', 'attendance', 'devices', 'accounts', 'profile'],
   user: ['overview', 'register-driver', 'profile'],
   driver: ['overview', 'check-in', 'attendance', 'alerts', 'profile'],
 };
-export const pageTitles: Record<string, string> = { overview: 'Tổng quan', drivers: 'Quản lý tài xế', attendance: 'Lịch sử điểm danh', alerts: 'Lịch sử cảnh báo', devices: 'Giám sát thiết bị', accounts: 'Tài khoản & phân quyền', profile: 'Hồ sơ của tôi', 'check-in': 'Điểm danh khuôn mặt', 'register-driver': 'Đăng ký tài xế' };
+export const pageTitles: Record<string, string> = { overview: 'Tổng quan', drivers: 'Quản lý tài xế', violations: 'Lịch sử vi phạm', attendance: 'Lịch sử điểm danh', alerts: 'Lịch sử cảnh báo', devices: 'Giám sát thiết bị', accounts: 'Tài khoản & phân quyền', profile: 'Hồ sơ của tôi', 'check-in': 'Điểm danh khuôn mặt', 'register-driver': 'Đăng ký tài xế' };
 
 export function formatTime(value: string, timeOnly = false) {
   const date = new Date(value);

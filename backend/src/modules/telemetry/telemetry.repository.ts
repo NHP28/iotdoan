@@ -10,6 +10,13 @@ import { AlertHistoryQueryDto } from './dto/alert-history-query.dto';
 export class TelemetryRepository {
   constructor(private readonly drizzle: DrizzleService) {}
 
+  async findDriver(id: number) {
+    const [driver] = await this.drizzle.select({
+      id: drivers.id, driver_code: drivers.driver_code, full_name: drivers.full_name,
+    }).from(drivers).where(eq(drivers.id, id)).limit(1);
+    return driver || null;
+  }
+
   async findAll(limit: number = 50) {
     return this.drizzle
       .select({

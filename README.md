@@ -1,6 +1,10 @@
 # DriverHub
 
-Next.js 16 + React 19 frontend theo style `video-stream-fe`: tím nhạt, viền rõ, bóng cứng, font tối đa medium (500). NestJS + MySQL quản lý tài khoản, hồ sơ và điểm danh. Raspberry Pi chạy model, dùng camera gắn tại thiết bị.
+Next.js 16 + React 19 + Tailwind CSS 4: tím nhạt, viền rõ, bóng cứng, font tối đa medium (500). NestJS + MySQL quản lý tài khoản, hồ sơ và điểm danh. Đăng ký ảnh/video dùng model khuôn mặt trên máy local; chấm công dùng model và camera trên Raspberry Pi.
+
+Hướng dẫn đầy đủ: [Đăng ký khuôn mặt và kết nối Raspberry Pi](README_FACE_ATTENDANCE.md).
+
+Style nằm trong utility Tailwind ở các component. `frontend/src/app/tailwind.css` chỉ nạp Tailwind; không có stylesheet tùy chỉnh. Không nạp Preflight để giữ các giá trị mặc định và giao diện hiện có.
 
 ## Chạy local
 
@@ -46,11 +50,15 @@ Các API chính: `/auth/login`, `/auth/register`, `/auth/me`, `/drivers`, `/atte
 
 ## Vai trò và hồ sơ
 
-- **Admin:** quản lý hồ sơ, thêm ảnh, tạo tài khoản tài xế liên kết, phân quyền, xem điểm danh và telemetry.
+- **Admin:** quản lý hồ sơ, thêm ảnh, tạo tài khoản tài xế liên kết, phân quyền, xem điểm danh, telemetry và lịch sử vi phạm của từng tài xế.
 - **Người dùng:** xem hồ sơ cá nhân và đăng ký trở thành tài xế.
-- **Tài xế:** đăng ký khuôn mặt tại Pi, check-in/check-out và xem lịch sử cá nhân.
+- **Tài xế:** đăng ký ảnh/video khuôn mặt trên web bằng model local, check-in/check-out tại camera Pi và xem lịch sử cá nhân.
 
-Form admin cho phép chọn ảnh JPG/PNG/WebP tối đa 3 MB và tạo email/mật khẩu tài xế. Hồ sơ cũ có thể thêm ảnh và tài khoản trong form sửa. Có ảnh mới thì Pi phải trích xuất được đúng một khuôn mặt mới lưu thành công. Pi chưa chạy thì có thể lưu hồ sơ không ảnh và bổ sung sau.
+Form đăng ký tài xế chỉ yêu cầu thông tin tài khoản và hồ sơ, không cần ảnh hoặc AI. Sau khi đăng ký, web chuyển đến Hồ sơ; chọn **Camera trực tiếp** để tự lấy ba mẫu theo hướng dẫn nhìn thẳng, quay nhẹ trái/phải, hoặc chọn **Ảnh / video** để tải ảnh chân dung hay tải/quay video. Bộ dò YuNet kiểm tra vị trí mặt nhanh; dlib kiểm tra danh tính các mẫu và lưu theo đúng ID tài xế. Xác nhận không phụ thuộc Pi; check-in/check-out cần khuôn mặt đã xác nhận và Pi online. Chạy migration `npm run db:face-datasets` trong backend cho database hiện có và chạy model local theo README hướng dẫn.
+
+Trang `/admin/violations` có ô tìm theo tên (có/không dấu), mã hoặc số điện thoại, chọn tài xế, lọc ngày UTC+7, loại và mức độ cảnh báo, phân trang và xem ảnh. Nút **Vi phạm** tại mỗi dòng trong **Quản lý tài xế** mở đúng hồ sơ đó. API `GET /api/v1/telemetry/drivers/:driverId/alerts` chỉ dành cho admin; sử dụng các tham số `date`, `type`, `level`, `page`, `page_size` như lịch sử của tài xế.
+
+Kiểm tra frontend: `npm run typecheck`, `npm run build`. Kiểm thử phân quyền và validation API admin không cần MySQL: chạy `npm run test:admin-alerts` trong `backend`.
 
 ## Raspberry Pi, FE và BE riêng domain
 
@@ -75,7 +83,7 @@ Pi kết nối HTTPS ra server; không cần public camera, mở cổng Pi hoặ
 BE `.env`:
 
 ```dotenv
-RECOGNITION_MODE=raspberry
+AI_MODEL_URL=http://127.0.0.1:8000
 RECOGNITION_DEVICE_ID=raspi_cam_01
 DEVICE_API_KEY=<khóa thiết bị ngẫu nhiên>
 ```
@@ -102,7 +110,8 @@ Windows: chạy `ai_model/setup-windows.ps1`, sau đó `.venv\Scripts\python.exe
 - MySQL `drivers`: thông tin tài xế, vector 128 chiều `face_embedding`, ảnh JPEG thu nhỏ trong `avatar_url` dạng data URL.
 - `accounts`, `sessions`: mật khẩu scrypt và hash token; trình duyệt dùng cookie HttpOnly.
 - `attendances`: ID tài xế, thời gian, check-in/out, điểm tương đồng và mã thiết bị.
-- `recognition_jobs`: ảnh/kết quả tạm cho Pi. Payload được xóa khi server nhận kết quả hoặc hết hạn; bản ghi hàng đợi cũ được dọn sau 24 giờ.
+- `driver_face_datasets`: ảnh mẫu đã nhận diện, vector từng ảnh và video đăng ký gốc dạng BLOB. Bộ mẫu được lưu cùng hồ sơ trong giao dịch MySQL.
+- `recognition_jobs`: yêu cầu/kết quả tạm cho Pi. Payload được xóa khi server nhận kết quả hoặc hết hạn; bản ghi hàng đợi cũ được dọn sau 24 giờ.
 - Ảnh cảnh báo được lưu thành file tại `backend/uploads/drivers/<driver_id>/alerts/<uuid>.jpg` (hoặc PNG/WebP). MySQL chỉ giữ đường dẫn trong `telemetry.snapshot_url`; cấu hình `UPLOAD_DIR` để chọn ổ lưu ảnh riêng và giữ dữ liệu qua các lần deploy. Model/weights nằm trong môi trường Python trên Pi.
 
 ## Lịch sử cảnh báo tài xế
@@ -127,10 +136,12 @@ Model hiện chưa có chống giả mạo ảnh/video (liveness); độ tương
 
 ## Deploy
 
+Git lưu mã nguồn hệ thống chính, notebook huấn luyện và model YuNet nhẹ phục vụ dò mặt. `IOT/` và `dms_model_test/` là các mẫu test local, được bỏ qua cùng file nén, dataset, log, cache, bản backup và weights lớn. Dữ liệu SFace của app test được đặt tại `ai_model/drivers.json` và cũng được Git bỏ qua. Hồ sơ và mẫu khuôn mặt đăng ký qua web của hệ thống chính được lưu trong MySQL theo ID tài xế.
+
 Thay domain trong `nginx.conf`. FE đặt `BACKEND_URL=https://api.driver.example.com/api/v1` và `COOKIE_SECURE=true`. Next.js gọi BE phía server; trình duyệt không cần giữ Bearer token. Bật HTTPS cho hai domain; proxy timeout tối thiểu 75 giây.
 
 `deploy.sh` build FE/BE và restart PM2 trên cùng máy. Nếu FE/BE ở hai máy, dùng config PM2 tương ứng trên mỗi máy. Raspberry Pi chạy worker riêng với URL domain backend.
 
 ## Kiểm tra
 
-FE và BE đều dùng `npm run build`. `backend/scripts/verify-integration.mjs` tạo database thử riêng, chạy bản BE production và worker thật để kiểm tra đăng nhập, quyền, ảnh, tài khoản liên kết, khớp/sai khuôn mặt, check-in/out và dọn hàng đợi. Script dùng hai ảnh công khai từ repository face_recognition tại `test-results/fixtures/sample-a.jpg`, `sample-b.jpg`, tự xóa database thử sau khi chạy. Chưa kiểm tra camera Pi thật.
+FE và BE đều dùng `npm run build`. Luồng mới được kiểm tra bằng `backend/scripts/verify-face-registration.mjs`: model local thật, bộ mẫu/video lưu MySQL, hàng đợi Pi và kiểm tra ca làm. Script dùng database tạm và video thay camera, tự xóa database sau khi chạy; xem cách cung cấp fixture trong [README hướng dẫn](README_FACE_ATTENDANCE.md). Chưa kiểm tra camera Pi thật.

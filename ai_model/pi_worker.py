@@ -20,7 +20,7 @@ import cv2
 import face_recognition
 import requests
 from fastapi import HTTPException
-from api import FaceRequest, VerifyRequest, enroll, verify
+from api import FaceRequest, VerifyRequest, BatchRequest, enroll, enroll_batch, verify
 
 SERVER_URL = os.environ.get('SERVER_URL', 'http://127.0.0.1:3000').rstrip('/')
 if not SERVER_URL.endswith('/api/v1'):
@@ -92,6 +92,8 @@ def process_image(operation, payload, image):
 
 def process_job(job):
     operation, payload = job['operation'], job['payload']
+    if operation == 'ENCODE' and payload.get('images'):
+        return enroll_batch(BatchRequest(images=payload['images']))
     if payload.get('image'):
         return process_image(operation, payload, payload['image'])
     # Capture from the Pi itself. A browser cannot supply a driver ID or a match result.
@@ -112,9 +114,8 @@ def process_job(job):
                     raise RuntimeError('Đã hủy nhận diện tại thiết bị.')
             if frames < 5 or frames % 3:
                 continue
-            small = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-            if len(face_recognition.face_locations(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))) != 1:
-                continue
+            # The shared encoder validates exactly one face at capture resolution.
+            # A separate half-resolution gate misses faces that the encoder can read.
             ok, encoded = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
             if not ok:
                 continue

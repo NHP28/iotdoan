@@ -1,13 +1,67 @@
+# Dependencies and build output
 node_modules/
 .next/
 dist/
-.env
-.env.local
+build/
 *.tsbuildinfo
-__pycache__/
-.venv/
-frontend/test-results/
 .npm-cache/
-test-results/
+
+# Local configuration and credentials; keep configuration templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Logs, generated test output and local uploads
+*.log
+*.pid
 .logs/
+coverage/
+test-results/
+playwright-report/
 uploads/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Archives and extracted local copies
+*.zip
+*.rar
+*.7z
+*.tar
+*.tgz
+*.gz
+*.bz2
+*.xz
+/IOT/
+/dms_model_test/
+/frontend/.tailwind-qa/
+/frontend/scripts/.tailwind-migration/
+
+# Local face data from the SFace test app; production profiles live in MySQL
+/ai_model/drivers.json
+
+# Model artifacts are distributed separately from source.
+# Keep the small YuNet detector needed by the face registration service.
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.tflite
+*.task
+!ai_model/models/face_detection_yunet_2023mar.onnx

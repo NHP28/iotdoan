@@ -1,5 +1,7 @@
 # Driver Attendance & IoT Monitoring Backend (NestJS + MySQL `iotdb`)
 
+Luồng đăng ký ảnh/video tại máy local và check-in/check-out bằng Raspberry Pi được mô tả tại [README_FACE_ATTENDANCE.md](../README_FACE_ATTENDANCE.md). Database hiện có cần chạy `npm run db:face-datasets`; model đăng ký local chạy ở `AI_MODEL_URL`.
+
 Hệ thống Backend API xây dựng theo kiến trúc NestJS + Fastify + Drizzle ORM chuẩn từ repository `PORN_BE`, phục vụ cho:
 1. Đăng ký & quản lý tài xế (Lưu thông tin, hình ảnh, face embedding vectors).
 2. Điểm danh tài xế qua nhận diện khuôn mặt.
@@ -109,6 +111,9 @@ Giao diện tài liệu Swagger tương tác: `http://localhost:3000/api/docs`
 ### 3. Module Giám sát IoT (`/telemetry`)
 - `GET /telemetry`: Lấy các bản tin trạng thái mới nhất từ xe/Raspberry Pi.
 - `GET /telemetry/device/:deviceId`: Lấy bản tin theo mã thiết bị Pi.
+- `GET /telemetry/my-alerts`: Tài xế xem lịch sử cảnh báo của chính mình.
+- `GET /telemetry/drivers/:driverId/alerts`: Chỉ admin được xem lịch sử vi phạm của tài xế đã chọn. Hỗ trợ `date=YYYY-MM-DD` theo UTC+7, `type=all|drowsiness|distraction|yawn`, `level=all|WARNING|CRITICAL`, `page` và `page_size` (tối đa 50). Trả thống kê, bản tin, phân trang và thông tin tài xế; mã tài xế không tồn tại trả 404.
+- `GET /telemetry/snapshots/:driverId/:filename`: Admin hoặc tài xế sở hữu ảnh được xem ảnh cảnh báo.
 - `POST /telemetry`: Raspberry Pi đẩy log định kỳ hoặc khi có cảnh báo:
   ```json
   {

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { DriversRepository } from './drivers.repository';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
-import { FaceModelService } from '../recognition/face-model.service';
+import { FaceDatasetService } from '../recognition/face-dataset.service';
 import { DrizzleService } from '../../drizzle/drizzle.service';
 import { drivers } from '../../drizzle/schemas/drivers.schema';
 import { accounts } from '../../drizzle/schemas/auth.schema';
@@ -12,7 +12,8 @@ import { desc, eq, getTableColumns } from 'drizzle-orm';
 
 @Injectable()
 export class DriversService {
-  constructor(private readonly driversRepo: DriversRepository, private readonly faceModel: FaceModelService, private readonly db: DrizzleService) {}
+  constructor(private readonly driversRepo: DriversRepository, private readonly db: DrizzleService,
+    private readonly faceDataset: FaceDatasetService) {}
 
   async getAllDrivers(includeEmbeddings = false) {
     if (includeEmbeddings) return this.driversRepo.findAll();
@@ -32,9 +33,10 @@ export class DriversService {
     if (existing) {
       throw new BadRequestException(`Driver code '${dto.driver_code}' already exists`);
     }
-    const { image, account_email, account_password, ...profile } = dto;
+    const { image, images, capture_source, enrollment_media, account_email, account_password, ...profile } = dto;
     if (!!account_email !== !!account_password) throw new BadRequestException('Vui lòng nhập cả email và mật khẩu để tạo tài khoản tài xế.');
-    const face = image ? await this.faceModel.encode(image) : {};
+    const enrollment = images?.length || image ? await this.faceDataset.prepare({ images: images || [image], capture_source, enrollment_media }) : null;
+    const face = enrollment ? { face_embedding: enrollment.face_embedding, avatar_url: enrollment.avatar_url } : {};
     let passwordHash: string | undefined;
     if (account_password) {
       const salt = randomBytes(16).toString('hex');
@@ -44,8 +46,10 @@ export class DriversService {
     try {
       return await this.db.db.transaction(async (tx) => {
         const [result] = await tx.insert(drivers).values({ ...profile, ...face });
+        if (enrollment) await this.faceDataset.persist(tx, result.insertId, enrollment);
         if (account_email && passwordHash) await tx.insert(accounts).values({ email: account_email.trim().toLowerCase(), full_name: profile.full_name, password_hash: passwordHash, role: 'driver', driver_id: result.insertId });
-        return { id: result.insertId, ...profile, avatar_url: (face as { avatar_url?: string }).avatar_url || profile.avatar_url, face_embedding: undefined, face_registered: !!image || !!profile.face_embedding, account_created: !!account_email };
+        return { id: result.insertId, ...profile, avatar_url: face.avatar_url || profile.avatar_url, face_embedding: undefined,
+          face_registered: !!enrollment || !!profile.face_embedding, sample_count: enrollment?.samples.length || 0, account_created: !!account_email };
       });
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY' || error.cause?.code === 'ER_DUP_ENTRY') throw new BadRequestException('Email hoặc mã tài xế đã được sử dụng.');
@@ -55,9 +59,10 @@ export class DriversService {
 
   async updateDriver(id: number, dto: UpdateDriverDto) {
     await this.getDriverById(id);
-    const { image, account_email, account_password, ...profile } = dto;
+    const { image, images, capture_source, enrollment_media, account_email, account_password, ...profile } = dto;
     if (!!account_email !== !!account_password) throw new BadRequestException('Vui lòng nhập cả email và mật khẩu để tạo tài khoản tài xế.');
-    const face = image ? await this.faceModel.encode(image) : {};
+    const enrollment = images?.length || image ? await this.faceDataset.prepare({ images: images || [image], capture_source, enrollment_media }) : null;
+    const face = enrollment ? { face_embedding: enrollment.face_embedding, avatar_url: enrollment.avatar_url } : {};
     let passwordHash: string | undefined;
     if (account_password) {
       const salt = randomBytes(16).toString('hex');
@@ -70,6 +75,7 @@ export class DriversService {
         if (!current) throw new NotFoundException('Không tìm thấy hồ sơ tài xế.');
         if (account_email && passwordHash) await tx.insert(accounts).values({ email: account_email.trim().toLowerCase(), full_name: profile.full_name || current.full_name, password_hash: passwordHash, role: 'driver', driver_id: id });
         await tx.update(drivers).set({ ...profile, ...face }).where(eq(drivers.id, id));
+        if (enrollment) await this.faceDataset.persist(tx, id, enrollment);
         if (profile.full_name) await tx.update(accounts).set({ full_name: profile.full_name }).where(eq(accounts.driver_id, id));
       });
       return { success: true, account_created: !!account_email };

@@ -5,12 +5,15 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "test:admin-alerts": "npm run build && node scripts/verify-admin-alerts.mjs",
+    "test:profile-registration": "npm run build && node scripts/verify-profile-registration.mjs",
     "start": "nest start",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "db:init": "node scripts/init-db.js",
     "db:push": "drizzle-kit push",
+    "db:face-datasets": "node scripts/migrate-face-datasets.mjs",
     "auth:admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { TelemetryRepository } from './telemetry.repository';
 import { CreateTelemetryDto } from './dto/create-telemetry.dto';
 import { AlertHistoryQueryDto } from './dto/alert-history-query.dto';
@@ -24,6 +24,17 @@ export class TelemetryService {
   }
 
   async getMyAlerts(driverId: number | null, query: AlertHistoryQueryDto) {
+    return this.getAlertHistory(driverId, query);
+  }
+
+  async getDriverAlerts(driverId: number, query: AlertHistoryQueryDto) {
+    if (!Number.isSafeInteger(driverId) || driverId < 1) throw new BadRequestException('Mã tài xế không hợp lệ.');
+    const driver = await this.telemetryRepo.findDriver(driverId);
+    if (!driver) throw new NotFoundException('Không tìm thấy hồ sơ tài xế.');
+    return { driver, ...await this.getAlertHistory(driverId, query) };
+  }
+
+  private async getAlertHistory(driverId: number | null, query: AlertHistoryQueryDto) {
     const date = query.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const calendar = new Date(`${date}T00:00:00Z`);
     if (!Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== date || calendar.getUTCFullYear() < 2000 || calendar.getUTCFullYear() > 2100) {

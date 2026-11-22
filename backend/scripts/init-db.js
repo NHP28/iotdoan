@@ -80,6 +80,7 @@ async function initDb() {
 
   console.log(`✅ Khởi tạo cơ sở dữ liệu \`${database}\` và toàn bộ các bảng thành công!`);
   const authSql = await readFile(new URL('./auth-tables.sql', import.meta.url), 'utf8');
+  await connection.query(await readFile(new URL('./face-datasets.sql', import.meta.url), 'utf8'));
   for (const statement of authSql.split(';').map((s) => s.trim()).filter(Boolean)) {
     await connection.query(statement);
   }

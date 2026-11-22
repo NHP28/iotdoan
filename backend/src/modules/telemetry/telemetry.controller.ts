@@ -19,6 +19,13 @@ export class TelemetryController {
     return this.telemetryService.getMyAlerts(request.user.driver_id, query);
   }
 
+  @Get('drivers/:driverId/alerts')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin xem lịch sử vi phạm theo ngày của một tài xế (UTC+7)' })
+  async driverAlerts(@Param('driverId', ParseIntPipe) driverId: number, @Query() query: AlertHistoryQueryDto) {
+    return this.telemetryService.getDriverAlerts(driverId, query);
+  }
+
   @Get('snapshots/:driverId/:filename')
   @Roles('admin', 'driver')
   @ApiOperation({ summary: 'Đọc ảnh cảnh báo; tài xế chỉ được xem ảnh của chính mình' })

@@ -4,3 +4,4 @@ export * from './schemas/telemetry.schema';
 
 export * from './schemas/auth.schema';
 export * from './schemas/recognition-jobs.schema';
+export * from './schemas/face-datasets.schema';

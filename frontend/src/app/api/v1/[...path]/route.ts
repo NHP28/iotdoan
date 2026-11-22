@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BACKEND, SESSION_COOKIE } from '@/lib/server';
 
 export const runtime = 'nodejs';
-const allowed = /^(auth\/(login|register|logout|me|driver-profile|accounts(?:\/\d+\/role)?)|drivers(?:\/\d+)?|attendance|telemetry(?:\/my-alerts|\/snapshots\/\d+\/[a-f0-9-]{36}\.(?:jpg|png|webp))?|recognition\/(enroll|attendance|history|status))$/;
+const allowed = /^(auth\/(login|register|logout|me|driver-profile|accounts(?:\/\d+\/role)?)|drivers(?:\/\d+)?|attendance|telemetry(?:\/my-alerts|\/drivers\/\d+\/alerts|\/snapshots\/\d+\/[a-f0-9-]{36}\.(?:jpg|png|webp))?|recognition\/(enroll|preview|attendance|history|status|dataset))$/;
 async function handler(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const path = (await context.params).path.join('/');
   if (!allowed.test(path)) return NextResponse.json({ success: false, data: null, message: 'Không tìm thấy API.' }, { status: 404 });
@@ -16,7 +16,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token && !['auth/login', 'auth/register'].includes(path)) return NextResponse.json({ success: false, data: null, message: 'Vui lòng đăng nhập.' }, { status: 401 });
   const raw = read ? undefined : await request.text();
-  if (raw && Buffer.byteLength(raw) > 4_300_000) return NextResponse.json({ success: false, data: null, message: 'Ảnh quá lớn. Giới hạn 3 MB.' }, { status: 413 });
+  const mediaPath = /^(auth\/(register|driver-profile)|drivers(?:\/\d+)?|recognition\/enroll)$/.test(path);
+  if (raw && Buffer.byteLength(raw) > (mediaPath ? 20_000_000 : 4_300_000)) return NextResponse.json({ success: false, data: null, message: 'Dữ liệu quá lớn. Video tối đa 8 MB; ảnh đăng ký tối đa 8 mẫu.' }, { status: 413 });
   try {
     const response = await fetch(`${BACKEND}/${path}${request.nextUrl.search}`, {
       method: request.method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

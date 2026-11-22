@@ -1,20 +1,22 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { and, desc, eq, gt } from 'drizzle-orm';
 import { DrizzleService } from '../../drizzle/drizzle.service';
 import { accounts, sessions } from '../../drizzle/schemas/auth.schema';
 import { drivers } from '../../drizzle/schemas/drivers.schema';
 import { DriverProfileDto, LoginDto, RegisterDto } from './auth.dto';
+import { FaceDatasetService } from '../recognition/face-dataset.service';
+import { digest } from '../../common/token-digest';
 
 const scrypt = promisify(scryptCallback);
-export const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+export { digest } from '../../common/token-digest';
 export type AuthUser = { id: number; email: string; full_name: string; role: string; driver_id: number | null };
 export const publicAccount = (a: typeof accounts.$inferSelect): AuthUser => ({ id: a.id, email: a.email, full_name: a.full_name, role: a.role, driver_id: a.driver_id });
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly drizzle: DrizzleService) {}
+  constructor(private readonly drizzle: DrizzleService, private readonly faceDataset: FaceDatasetService) {}
 
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
@@ -37,7 +39,8 @@ export class AuthService {
           email, full_name: dto.full_name.trim(), password_hash: `${salt}:${hash.toString('hex')}`,
           role: dto.role || 'user', driver_id: driverId,
         });
-        return { id: result.insertId, email, full_name: dto.full_name.trim(), role: dto.role || 'user', driver_id: driverId };
+        return { id: result.insertId, email, full_name: dto.full_name.trim(), role: dto.role || 'user', driver_id: driverId,
+          face_registered: false, sample_count: 0 };
       });
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY' || error.cause?.code === 'ER_DUP_ENTRY') throw new ConflictException('Email đã được sử dụng.');
@@ -75,15 +78,20 @@ export class AuthService {
 
   async me(user: AuthUser) {
     const [driver] = user.driver_id ? await this.drizzle.db.select().from(drivers).where(eq(drivers.id, user.driver_id)).limit(1) : [];
-    return { ...user, driver: driver ? { ...driver, face_embedding: undefined, face_registered: !!driver.face_embedding } : null };
+    const dataset = driver ? await this.faceDataset.summary(driver.id) : null;
+    return { ...user, driver: driver ? { ...driver, face_embedding: undefined, face_registered: !!driver.face_embedding,
+      face_sample_count: dataset.sample_count, face_source: dataset.source, face_enrolled_at: dataset.enrolled_at } : null };
   }
 
   async registerDriver(user: AuthUser, dto: DriverProfileDto) {
     if (user.role !== 'user' || user.driver_id) throw new ConflictException('Tài khoản không thể đăng ký thêm hồ sơ tài xế.');
+    const enrollment = await this.faceDataset.prepare(dto);
     await this.drizzle.db.transaction(async (tx) => {
       const [current] = await tx.select().from(accounts).where(eq(accounts.id, user.id)).for('update');
       if (current.role !== 'user' || current.driver_id) throw new ConflictException('Hồ sơ tài xế đã tồn tại.');
-      const [result] = await tx.insert(drivers).values({ driver_code: `TX-${randomBytes(5).toString('hex').toUpperCase()}`, full_name: user.full_name, ...dto });
+      const [result] = await tx.insert(drivers).values({ driver_code: `TX-${randomBytes(5).toString('hex').toUpperCase()}`, full_name: user.full_name,
+        phone: dto.phone, license_number: dto.license_number });
+      await this.faceDataset.persist(tx, result.insertId, enrollment);
       await tx.update(accounts).set({ driver_id: result.insertId, role: 'driver' }).where(eq(accounts.id, user.id));
     });
     return { success: true };

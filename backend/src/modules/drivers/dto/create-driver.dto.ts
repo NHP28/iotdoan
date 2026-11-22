@@ -1,7 +1,8 @@
 import { IsString, IsNotEmpty, IsOptional, IsEmail, Length, Matches, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { EnrollmentDto } from '../../recognition/enrollment.dto';
 
-export class CreateDriverDto {
+export class CreateDriverDto extends EnrollmentDto {
   @ApiProperty({ example: 'TX001', description: 'Mã định danh tài xế' })
   @IsString()
   @IsNotEmpty()

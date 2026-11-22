@@ -4,7 +4,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DrizzleService } from '../../drizzle/drizzle.service';
 import { recognitionDevices, recognitionJobs } from '../../drizzle/schemas/recognition-jobs.schema';
-import { digest } from '../auth/auth.service';
+import { digest } from '../../common/token-digest';
 
 @Injectable()
 export class RecognitionQueueService {

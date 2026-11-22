@@ -1,5 +1,6 @@
 import { IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { EnrollmentDto } from '../recognition/enrollment.dto';
 
 export class LoginDto {
   @ApiProperty({ example: 'ad', description: 'Tên đăng nhập hoặc email' })
@@ -15,7 +16,7 @@ export class RegisterDto extends LoginDto {
   @ApiPropertyOptional({ example: '0912345678' }) @IsOptional() @IsString() @Matches(/^\+?[0-9]{9,15}$/) phone?: string;
   @ApiPropertyOptional({ example: 'B2-123456' }) @IsOptional() @IsString() @Length(5, 50) license_number?: string;
 }
-export class DriverProfileDto {
+export class DriverProfileDto extends EnrollmentDto {
   @IsString() @Matches(/^\+?[0-9]{9,15}$/) phone: string;
   @IsString() @Length(5, 50) license_number: string;
 }
@@ -27,13 +28,18 @@ export class FaceDto {
   @Matches(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/)
   image: string;
 }
-export class EnrollFaceDto {
+export class PreviewFaceDto extends FaceDto {
+  @IsIn(['front', 'left', 'right']) pose: 'front' | 'left' | 'right';
+}
+export class EnrollFaceDto extends EnrollmentDto {
   @IsOptional() @IsString() @MaxLength(4_200_000)
   @Matches(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/)
   image?: string;
   @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{1,100}$/)
   device_id?: string;
 }
-export class RecognizeDto extends EnrollFaceDto {
+export class RecognizeDto {
+  @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{1,100}$/)
+  device_id?: string;
   @IsIn(['CHECK_IN', 'CHECK_OUT']) check_type: 'CHECK_IN' | 'CHECK_OUT';
 }
